@@ -47,6 +47,35 @@ module.exports = class GraphApi {
     }
   }
 
+  static async sendTextMessage(messageId, senderPhoneNumberId, recipientPhoneNumber, text) {
+    const requestBody = {
+      messaging_product: "whatsapp",
+      to: recipientPhoneNumber,
+      type: "text",
+      text: { body: text }
+    };
+    return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
+  }
+
+  static async sendListMessage(messageId, senderPhoneNumberId, recipientPhoneNumber, header, body, footer, sections) {
+    const requestBody = {
+      messaging_product: "whatsapp",
+      to: recipientPhoneNumber,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        header: { type: "text", text: header },
+        body: { text: body },
+        footer: { text: footer },
+        action: {
+          button: "Select Service",
+          sections: sections
+        }
+      }
+    };
+    return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
+  }
+
   static async messageWithInteractiveReply(messageId, senderPhoneNumberId, recipientPhoneNumber, messageText, replyCTAs) {
     const requestBody = {
       messaging_product: "whatsapp",

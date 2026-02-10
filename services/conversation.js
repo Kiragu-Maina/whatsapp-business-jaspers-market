@@ -8,83 +8,63 @@
 "use strict";
 
 const constants = require("./constants");
-const config = require("./config");
 const GraphApi = require('./graph-api');
 const Message = require('./message');
-const Status = require('./status');
 const Cache = require('./redis');
 
-
-function sendTryOutDemoMessage(messageId, senderPhoneNumberId, recipientPhoneNumber, messageBody) {
-  return GraphApi.messageWithInteractiveReply(
-    messageId,
-    senderPhoneNumberId,
-    recipientPhoneNumber,
-    messageBody,
-    [
-      {
-        id: constants.REPLY_INTERACTIVE_MEDIA_ID,
-        title: constants.REPLY_INTERACTIVE_WITH_MEDIA_CTA,
-      },
-      {
-        id: constants.REPLY_MEDIA_CAROUSEL_ID,
-        title: constants.REPLY_MEDIA_CARD_CAROUSEL_CTA,
-      },
-      {
-        id: constants.REPLY_OFFER_ID,
-        title: constants.REPLY_OFFER_CTA,
-      }
-    ]
-  );
-}
-
-function sendInteractiveMediaMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
-  return GraphApi.messageWithUtilityTemplate(
-    messageId,
-    senderPhoneNumberId,
-    recipientPhoneNumber,
+async function sendWelcomeMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
+  const sections = [
     {
-      templateName: "grocery_delivery_utility",
-      locale: "en_US",
-      imageLink: "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1530053877871776",
-    }
-  );
-}
-
-function sendLimitedTimeOfferMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
-  return GraphApi.messageWithLimitedTimeOfferTemplate(
-    messageId,
-    senderPhoneNumberId,
-    recipientPhoneNumber,
-    {
-      templateName: "strawberries_limited_offer",
-      locale: "en_US",
-      imageLink: "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1393969325614091",
-      offerCode: "BERRIES20",
-    }
-  );
-}
-
-function sendMediaCarouselMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
-  return GraphApi.messageWithMediaCardCarousel(
-    messageId,
-    senderPhoneNumberId,
-    recipientPhoneNumber,
-    {
-      templateName: "recipe_media_carousel",
-      locale: "en_US",
-      imageLinks: [
-        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1389202275965231",
-        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=3255815791260974"
+      title: "Our Services",
+      rows: [
+        {
+          id: constants.MENU_AI_AUTOMATION,
+          title: "AI & Automation",
+          description: "Chatbots, Document Processing"
+        },
+        {
+          id: constants.MENU_IOT,
+          title: "IoT Solutions",
+          description: "Tracking, Smart Monitoring"
+        },
+        {
+          id: constants.MENU_DEV,
+          title: "Software Development",
+          description: "Web, Mobile, LMS"
+        },
+        {
+          id: constants.MENU_DEVOPS,
+          title: "Infra & DevOps",
+          description: "Cloud, CI/CD, Security"
+        },
+        {
+          id: constants.MENU_CONTACT,
+          title: "Get a Quote",
+          description: "Talk to an Expert"
+        }
       ]
     }
+  ];
+
+  await GraphApi.sendListMessage(
+    messageId,
+    senderPhoneNumberId,
+    recipientPhoneNumber,
+    "AlkenaCode Creations",
+    constants.APP_WELCOME_MESSAGE,
+    "Select an option to learn more",
+    sections
   );
 }
 
-async function markMessageForFollowUp(messageId) {
-  await Cache.insert(messageId);
+async function sendServiceDescription(messageId, senderPhoneNumberId, recipientPhoneNumber, text) {
+  await GraphApi.sendTextMessage(
+    messageId,
+    senderPhoneNumberId,
+    recipientPhoneNumber,
+    text
+  );
 }
-
 
 module.exports = class Conversation {
   constructor(phoneNumberId) {
@@ -94,59 +74,66 @@ module.exports = class Conversation {
   static async handleMessage(senderPhoneNumberId, rawMessage) {
     const message = new Message(rawMessage);
 
+    // If text message, check for "Hi" or similar trigger
+    if (message.type === 'text') {
+      const body = message.body.toLowerCase();
+      if (['hi', 'hello', 'start', 'menu'].some(w => body.includes(w))) {
+        await sendWelcomeMessage(message.id, senderPhoneNumberId, message.senderPhoneNumber);
+        return;
+      }
+    }
+
     switch (message.type) {
-      case constants.REPLY_INTERACTIVE_MEDIA_ID:
-        let interactiveMediaResponse = await sendInteractiveMediaMessage(
-          message.id,
-          senderPhoneNumberId,
-          message.senderPhoneNumber
-        );
-        await markMessageForFollowUp(interactiveMediaResponse.messages[0].id);
-        break;
-      case constants.REPLY_MEDIA_CAROUSEL_ID:
-        let mediaCarouselResponse = await sendMediaCarouselMessage(
-          message.id,
-          senderPhoneNumberId,
-          message.senderPhoneNumber
-        );
-        await markMessageForFollowUp(mediaCarouselResponse.messages[0].id);
-        break;
-      case constants.REPLY_OFFER_ID:
-        let ltoResponse = await sendLimitedTimeOfferMessage(
-          message.id,
-          senderPhoneNumberId,
-          message.senderPhoneNumber
-        );
-        await markMessageForFollowUp(ltoResponse.messages[0].id);
-        break;
-      default:
-        sendTryOutDemoMessage(
+      case constants.MENU_AI_AUTOMATION:
+        await sendServiceDescription(
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,
-          constants.APP_DEFAULT_MESSAGE
+          constants.TEXT_AI_AUTOMATION
         );
+        break;
+      case constants.MENU_IOT:
+        await sendServiceDescription(
+          message.id,
+          senderPhoneNumberId,
+          message.senderPhoneNumber,
+          constants.TEXT_IOT_SOLUTIONS
+        );
+        break;
+      case constants.MENU_DEV:
+        await sendServiceDescription(
+          message.id,
+          senderPhoneNumberId,
+          message.senderPhoneNumber,
+          constants.TEXT_PLATFORM_DEV
+        );
+        break;
+      case constants.MENU_DEVOPS:
+        await sendServiceDescription(
+          message.id,
+          senderPhoneNumberId,
+          message.senderPhoneNumber,
+          constants.TEXT_DEVOPS_SEC
+        );
+        break;
+      case constants.MENU_CONTACT:
+        await sendServiceDescription(
+          message.id,
+          senderPhoneNumberId,
+          message.senderPhoneNumber,
+          constants.TEXT_CONTACT_US
+        );
+        break;
+      default:
+        // For unknown inputs, simple fallback or re-send menu
+        await sendWelcomeMessage(message.id, senderPhoneNumberId, message.senderPhoneNumber);
         break;
     }
   }
 
   static async handleStatus(senderPhoneNumberId, rawStatus) {
-    const status = new Status(rawStatus);
-
-    // Only handle delivered and read statuses
-    if (!(status.status === 'delivered' || status.status === 'read')) {
-      return;
-    }
-
-    // Only send a follow up message if the current message is flagged
-    // as needing one in the cache.
-    if (await Cache.remove(status.messageId)) {
-      await sendTryOutDemoMessage(
-        undefined,
-        senderPhoneNumberId,
-        status.recipientPhoneNumber,
-        constants.APP_TRY_ANOTHER_MESSAGE
-      );
-    }
+    // Current implementation doesn't need to track status for flow control yet
+    // But keeping structure for future use
+    console.log(`Status update for ${senderPhoneNumberId}: ${rawStatus.status}`);
   }
 };
